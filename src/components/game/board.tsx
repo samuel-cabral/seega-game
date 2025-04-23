@@ -15,9 +15,10 @@ export function Board({ roomId }: BoardProps) {
     selectedPiece, 
     phase, 
     selectPiece, 
-    placePiece 
+    placePiece,
+    piecesPlaced 
   } = useGameStore();
-  const { emitMove } = useSocket();
+  const { emitMove, emitPlacePiece } = useSocket();
 
   const handleCellClick = (x: number, y: number) => {
     // Não permitir colocar peças no centro do tabuleiro durante a fase de colocação
@@ -28,6 +29,7 @@ export function Board({ roomId }: BoardProps) {
     if (phase === 'placement') {
       // Lógica de colocação de peças
       if (board[y][x] === null) {
+        emitPlacePiece(roomId, { x, y });
         placePiece({ x, y });
       }
       return;
@@ -76,9 +78,16 @@ export function Board({ roomId }: BoardProps) {
           ))
         )}
       </div>
-      <div className="text-white text-center">
+      <div className="text-white text-center space-y-2">
         <p>Fase: {phase === 'placement' ? 'Colocação' : 'Movimento'}</p>
         <p>Jogador Atual: {currentPlayer === 'black' ? 'Preto' : 'Branco'}</p>
+        {phase === 'placement' && (
+          <div>
+            <p>Peças colocadas:</p>
+            <p>Preto: {piecesPlaced.black}/12</p>
+            <p>Branco: {piecesPlaced.white}/12</p>
+          </div>
+        )}
       </div>
     </div>
   );
