@@ -12,6 +12,7 @@ interface GameState {
   selectedPiece: Position | null;
   messages: { playerId: string; message: string }[];
   winner: string | null;
+  piecesPlaced: { black: number; white: number };
   
   // Ações
   initializeBoard: () => void;
@@ -23,6 +24,8 @@ interface GameState {
   surrender: () => void;
 }
 
+const PIECES_PER_PLAYER = 12;
+
 export const useGameStore = create<GameState>((set) => ({
   board: Array(5).fill(null).map(() => Array(5).fill(null)),
   currentPlayer: 'black',
@@ -30,6 +33,7 @@ export const useGameStore = create<GameState>((set) => ({
   selectedPiece: null,
   messages: [],
   winner: null,
+  piecesPlaced: { black: 0, white: 0 },
 
   initializeBoard: () => {
     set({
@@ -39,21 +43,36 @@ export const useGameStore = create<GameState>((set) => ({
       selectedPiece: null,
       messages: [],
       winner: null,
+      piecesPlaced: { black: 0, white: 0 },
     });
   },
 
   placePiece: (position) => {
     set((state) => {
-      if (state.phase !== 'placement' || state.board[position.y][position.x] !== null) {
+      if (state.phase !== 'placement' || 
+          state.board[position.y][position.x] !== null ||
+          (position.x === 2 && position.y === 2)) {
         return state;
       }
 
       const newBoard = [...state.board];
       newBoard[position.y][position.x] = state.currentPlayer;
 
+      const newPiecesPlaced = {
+        ...state.piecesPlaced,
+        [state.currentPlayer]: state.piecesPlaced[state.currentPlayer] + 1,
+      };
+
+      // Verificar se todos as peças foram colocadas
+      const allPiecesPlaced = 
+        newPiecesPlaced.black === PIECES_PER_PLAYER && 
+        newPiecesPlaced.white === PIECES_PER_PLAYER;
+
       return {
         board: newBoard,
         currentPlayer: state.currentPlayer === 'black' ? 'white' : 'black',
+        piecesPlaced: newPiecesPlaced,
+        phase: allPiecesPlaced ? 'movement' : 'placement',
       };
     });
   },
@@ -63,6 +82,13 @@ export const useGameStore = create<GameState>((set) => ({
       if (state.phase !== 'movement' || 
           state.board[from.y][from.x] !== state.currentPlayer ||
           state.board[to.y][to.x] !== null) {
+        return state;
+      }
+
+      // Verificar se o movimento é válido (apenas uma casa adjacente)
+      const dx = Math.abs(to.x - from.x);
+      const dy = Math.abs(to.y - from.y);
+      if (!((dx === 1 && dy === 0) || (dx === 0 && dy === 1))) {
         return state;
       }
 
@@ -76,9 +102,22 @@ export const useGameStore = create<GameState>((set) => ({
         newBoard[pos.y][pos.x] = null;
       });
 
+      // Verificar condição de vitória
+      const opponent = state.currentPlayer === 'black' ? 'white' : 'black';
+      const opponentPieces = countPieces(newBoard, opponent);
+      const hasValidMoves = checkValidMoves(newBoard, opponent);
+
+      if (opponentPieces === 0 || !hasValidMoves) {
+        return {
+          board: newBoard,
+          winner: state.currentPlayer,
+          selectedPiece: null,
+        };
+      }
+
       return {
         board: newBoard,
-        currentPlayer: state.currentPlayer === 'black' ? 'white' : 'black',
+        currentPlayer: opponent,
         selectedPiece: null,
       };
     });
@@ -133,4 +172,27 @@ function checkCaptures(position: Position, board: Cell[][], player: Player): Pos
 
 function isValidPosition(pos: Position): boolean {
   return pos.x >= 0 && pos.x < 5 && pos.y >= 0 && pos.y < 5;
+}
+
+function countPieces(board: Cell[][], player: Player): number {
+  return board.reduce((count, row) => 
+    count + row.filter(cell => cell === player).length, 0);
+}
+
+function checkValidMoves(board: Cell[][], player: Player): boolean {
+  for (let y = 0; y < 5; y++) {
+    for (let x = 0; x < 5; x++) {
+      if (board[y][x] === player) {
+        const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        for (const [dy, dx] of directions) {
+          const newY = y + dy;
+          const newX = x + dx;
+          if (isValidPosition({ x: newX, y: newY }) && board[newY][newX] === null) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
 } 
