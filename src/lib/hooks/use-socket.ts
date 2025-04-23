@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useGameStore } from '../store/game-store';
@@ -8,7 +10,8 @@ export function useSocket() {
     placePiece, 
     movePiece, 
     setWinner, 
-    addMessage 
+    addMessage,
+    initializeBoard 
   } = useGameStore();
 
   useEffect(() => {
@@ -26,6 +29,13 @@ export function useSocket() {
 
       socketRef.current.on('game-start', (data: { firstPlayer: string }) => {
         console.log('Jogo iniciado, primeiro jogador:', data.firstPlayer);
+        initializeBoard();
+      });
+
+      socketRef.current.on('piece-placed', (data: {
+        position: { x: number, y: number }
+      }) => {
+        placePiece(data.position);
       });
 
       socketRef.current.on('piece-moved', (data: {
@@ -67,6 +77,10 @@ export function useSocket() {
     socketRef.current?.emit('join-game', roomId);
   };
 
+  const emitPlacePiece = (roomId: string, position: { x: number, y: number }) => {
+    socketRef.current?.emit('place-piece', { roomId, position });
+  };
+
   const emitMove = (roomId: string, from: { x: number, y: number }, to: { x: number, y: number }) => {
     socketRef.current?.emit('move-piece', { roomId, from, to });
   };
@@ -82,6 +96,7 @@ export function useSocket() {
   return {
     socket: socketRef.current,
     joinGame,
+    emitPlacePiece,
     emitMove,
     surrender,
     sendMessage,
