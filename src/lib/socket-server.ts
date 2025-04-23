@@ -40,6 +40,15 @@ export function initSocketServer(res: NextApiResponseWithSocket) {
         }
       });
 
+      socket.on('place-piece', (data: {
+        roomId: string,
+        position: { x: number, y: number }
+      }) => {
+        socket.to(data.roomId).emit('piece-placed', {
+          position: data.position
+        });
+      });
+
       socket.on('move-piece', (data: { 
         roomId: string, 
         from: { x: number, y: number }, 
